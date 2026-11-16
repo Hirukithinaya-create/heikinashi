@@ -1,0 +1,316 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidTimeframe(tf) {
+      return tf in ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '1w'];
+    }
+
+    function isValidPair(pair) {
+      return pair is string && pair.size() >= 4 && pair.size() <= 20 && pair.matches('^[A-Z0-9]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'userId', 'displayName', 'email', 'language', 'selectedPair', 'timeframe',
+          'leverage', 'marginUsdt', 'marginMode', 'boundaryMode', 'rsiPeriod',
+          'rsiOverbought', 'rsiOversold', 'botActive', 'paperBalanceUsdt',
+          'lastEvaluatedTime', 'armedSellRef', 'armedBuyRef',
+          'armedSellCandleTime', 'armedBuyCandleTime', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'displayName', 'email', 'language', 'selectedPair', 'timeframe',
+          'leverage', 'marginUsdt', 'marginMode', 'boundaryMode', 'rsiPeriod',
+          'rsiOverbought', 'rsiOversold', 'buyCloseRsiEnabled', 'buyCloseRsi',
+          'sellCloseRsiEnabled', 'sellCloseRsi', 'botActive', 'stopLossEnabled', 'paperBalanceUsdt',
+          'lastEvaluatedTime', 'armedSellRef', 'armedBuyRef', 'armedSellWick', 'armedBuyWick',
+          'armedSellCandleTime', 'armedBuyCandleTime',
+          'slReentrySide', 'slReentryPrice', 'slReentryStopLoss',
+          'createdAt', 'updatedAt'
+        ])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.language in ['en', 'si']
+        && isValidPair(data.selectedPair)
+        && isValidTimeframe(data.timeframe)
+        && (data.leverage is int || data.leverage is float) && data.leverage >= 1 && data.leverage <= 125
+        && (data.marginUsdt is int || data.marginUsdt is float) && data.marginUsdt >= 1 && data.marginUsdt <= 10000000
+        && data.marginMode in ['ISOLATED', 'CROSSED']
+        && data.boundaryMode in ['wick', 'body']
+        && (data.rsiPeriod is int || data.rsiPeriod is float) && data.rsiPeriod >= 2 && data.rsiPeriod <= 50
+        && (data.rsiOverbought is int || data.rsiOverbought is float) && data.rsiOverbought >= 50 && data.rsiOverbought <= 99
+        && (data.rsiOversold is int || data.rsiOversold is float) && data.rsiOversold >= 1 && data.rsiOversold <= 50
+        && (!('buyCloseRsiEnabled' in data) || data.buyCloseRsiEnabled is bool)
+        && (!('buyCloseRsi' in data) || ((data.buyCloseRsi is int || data.buyCloseRsi is float) && data.buyCloseRsi >= 1 && data.buyCloseRsi <= 99))
+        && (!('sellCloseRsiEnabled' in data) || data.sellCloseRsiEnabled is bool)
+        && (!('sellCloseRsi' in data) || ((data.sellCloseRsi is int || data.sellCloseRsi is float) && data.sellCloseRsi >= 1 && data.sellCloseRsi <= 99))
+        && data.botActive is bool
+        && (!('stopLossEnabled' in data) || data.stopLossEnabled is bool)
+        && (data.paperBalanceUsdt is int || data.paperBalanceUsdt is float) && data.paperBalanceUsdt >= 0 && data.paperBalanceUsdt <= 100000000
+        && (data.lastEvaluatedTime is int || data.lastEvaluatedTime is float) && data.lastEvaluatedTime >= 0
+        && (data.armedSellRef is int || data.armedSellRef is float) && data.armedSellRef >= 0
+        && (data.armedBuyRef is int || data.armedBuyRef is float) && data.armedBuyRef >= 0
+        && (!('armedSellWick' in data) || ((data.armedSellWick is int || data.armedSellWick is float) && data.armedSellWick >= 0))
+        && (!('armedBuyWick' in data) || ((data.armedBuyWick is int || data.armedBuyWick is float) && data.armedBuyWick >= 0))
+        && (data.armedSellCandleTime is int || data.armedSellCandleTime is float) && data.armedSellCandleTime >= 0
+        && (data.armedBuyCandleTime is int || data.armedBuyCandleTime is float) && data.armedBuyCandleTime >= 0
+        && (!('slReentrySide' in data) || data.slReentrySide in ['BUY', 'SELL', 'NONE'])
+        && (!('slReentryPrice' in data) || ((data.slReentryPrice is int || data.slReentryPrice is float) && data.slReentryPrice >= 0))
+        && (!('slReentryStopLoss' in data) || ((data.slReentryStopLoss is int || data.slReentryStopLoss is float) && data.slReentryStopLoss >= 0))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTradeRecord(data) {
+      return data.keys().hasAll([
+          'ownerId', 'pair', 'timeframe', 'side', 'status', 'entryPrice', 'exitPrice',
+          'leverage', 'marginUsdt', 'quantity', 'realizedPnl', 'realizedRoiPct',
+          'entryRsi', 'exitRsi', 'closeReason', 'openedAtMs', 'closedAtMs',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'pair', 'timeframe', 'side', 'status', 'entryPrice', 'exitPrice',
+          'stopLossPrice', 'leverage', 'marginUsdt', 'quantity', 'realizedPnl', 'realizedRoiPct',
+          'entryRsi', 'exitRsi', 'closeReason', 'openedAtMs', 'closedAtMs',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && isValidPair(data.pair)
+        && isValidTimeframe(data.timeframe)
+        && data.side in ['BUY', 'SELL']
+        && data.status in ['OPEN', 'CLOSED']
+        && (data.entryPrice is int || data.entryPrice is float) && data.entryPrice > 0
+        && (data.exitPrice is int || data.exitPrice is float) && data.exitPrice >= 0
+        && (!('stopLossPrice' in data) || ((data.stopLossPrice is int || data.stopLossPrice is float) && data.stopLossPrice >= 0))
+        && (data.leverage is int || data.leverage is float) && data.leverage >= 1 && data.leverage <= 125
+        && (data.marginUsdt is int || data.marginUsdt is float) && data.marginUsdt > 0 && data.marginUsdt <= 10000000
+        && (data.quantity is int || data.quantity is float) && data.quantity > 0
+        && (data.realizedPnl is int || data.realizedPnl is float)
+        && (data.realizedRoiPct is int || data.realizedRoiPct is float)
+        && (data.entryRsi is int || data.entryRsi is float) && data.entryRsi >= 0 && data.entryRsi <= 100
+        && (data.exitRsi is int || data.exitRsi is float) && data.exitRsi >= 0 && data.exitRsi <= 100
+        && data.closeReason in ['NONE', 'REVERSAL_SIGNAL', 'MANUAL_CLOSE', 'STOP_LOSS', 'RSI_CLOSE']
+        && (data.openedAtMs is int || data.openedAtMs is float) && data.openedAtMs > 0
+        && (data.closedAtMs is int || data.closedAtMs is float) && data.closedAtMs >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSignalRecord(data) {
+      return data.keys().hasAll([
+          'ownerId', 'pair', 'timeframe', 'signalType', 'candleTimeMs', 'price',
+          'haOpen', 'haHigh', 'haLow', 'haClose', 'rsi', 'referenceLevel',
+          'executed', 'note', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'pair', 'timeframe', 'signalType', 'candleTimeMs', 'price',
+          'haOpen', 'haHigh', 'haLow', 'haClose', 'rsi', 'referenceLevel',
+          'executed', 'note', 'createdAt'
+        ])
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && isValidPair(data.pair)
+        && isValidTimeframe(data.timeframe)
+        && data.signalType in ['BUY', 'SELL', 'ARMED_SELL', 'ARMED_BUY', 'STOP_LOSS', 'RSI_CLOSE']
+        && (data.candleTimeMs is int || data.candleTimeMs is float) && data.candleTimeMs > 0
+        && (data.price is int || data.price is float) && data.price > 0
+        && (data.haOpen is int || data.haOpen is float) && data.haOpen > 0
+        && (data.haHigh is int || data.haHigh is float) && data.haHigh > 0
+        && (data.haLow is int || data.haLow is float) && data.haLow > 0
+        && (data.haClose is int || data.haClose is float) && data.haClose > 0
+        && (data.rsi is int || data.rsi is float) && data.rsi >= 0 && data.rsi <= 100
+        && (data.referenceLevel is int || data.referenceLevel is float) && data.referenceLevel >= 0
+        && data.executed is bool
+        && data.note is string && data.note.size() <= 240
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBinanceCredentials(data) {
+      return data.keys().hasAll([
+          'ownerId', 'encryptedKey', 'encryptedSecret', 'keyPreview',
+          'testnet', 'enabled', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'encryptedKey', 'encryptedSecret', 'keyPreview',
+          'testnet', 'enabled', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.encryptedKey is string && data.encryptedKey.size() >= 12 && data.encryptedKey.size() <= 1024
+        && data.encryptedSecret is string && data.encryptedSecret.size() >= 12 && data.encryptedSecret.size() <= 1024
+        && data.keyPreview is string && data.keyPreview.size() >= 4 && data.keyPreview.size() <= 40
+        && data.testnet is bool
+        && data.enabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().userId == existing().userId
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'selectedPair', 'timeframe', 'leverage', 'marginUsdt', 'marginMode',
+            'boundaryMode', 'rsiPeriod', 'rsiOverbought', 'rsiOversold',
+            'buyCloseRsiEnabled', 'buyCloseRsi', 'sellCloseRsiEnabled', 'sellCloseRsi',
+            'stopLossEnabled', 'language', 'displayName', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'selectedPair', 'timeframe', 'leverage', 'marginUsdt', 'marginMode',
+            'boundaryMode', 'rsiPeriod', 'rsiOverbought', 'rsiOversold',
+            'buyCloseRsiEnabled', 'buyCloseRsi', 'sellCloseRsiEnabled', 'sellCloseRsi',
+            'stopLossEnabled',
+            'botActive', 'lastEvaluatedTime', 'armedSellRef', 'armedBuyRef',
+            'armedSellWick', 'armedBuyWick',
+            'armedSellCandleTime', 'armedBuyCandleTime',
+            'slReentrySide', 'slReentryPrice', 'slReentryStopLoss', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'botActive', 'lastEvaluatedTime', 'armedSellRef', 'armedBuyRef',
+            'armedSellWick', 'armedBuyWick',
+            'armedSellCandleTime', 'armedBuyCandleTime',
+            'slReentrySide', 'slReentryPrice', 'slReentryStopLoss',
+            'paperBalanceUsdt', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'paperBalanceUsdt', 'slReentrySide', 'slReentryPrice', 'slReentryStopLoss', 'updatedAt'
+          ])
+        );
+      allow delete: if false;
+
+      match /trades/{tradeId} {
+        allow get: if isValidId(userId) && isValidId(tradeId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(tradeId)
+          && isOwner(userId)
+          && isValidTradeRecord(incoming())
+          && incoming().status == 'OPEN'
+          && incoming().exitPrice == 0
+          && incoming().closedAtMs == 0
+          && incoming().closeReason == 'NONE'
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(tradeId)
+          && isOwner(userId)
+          && isValidTradeRecord(incoming())
+          && existing().status == 'OPEN'
+          && incoming().status == 'CLOSED'
+          && incoming().ownerId == existing().ownerId
+          && incoming().pair == existing().pair
+          && incoming().timeframe == existing().timeframe
+          && incoming().side == existing().side
+          && incoming().entryPrice == existing().entryPrice
+          && incoming().leverage == existing().leverage
+          && incoming().marginUsdt == existing().marginUsdt
+          && incoming().quantity == existing().quantity
+          && incoming().entryRsi == existing().entryRsi
+          && incoming().openedAtMs == existing().openedAtMs
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().exitPrice > 0
+          && incoming().closedAtMs > 0
+          && incoming().closeReason in ['REVERSAL_SIGNAL', 'MANUAL_CLOSE', 'STOP_LOSS', 'RSI_CLOSE']
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'exitPrice', 'realizedPnl', 'realizedRoiPct',
+            'exitRsi', 'closeReason', 'closedAtMs', 'updatedAt'
+          ]);
+        allow delete: if false;
+      }
+
+      match /signals/{signalId} {
+        allow get: if isValidId(userId) && isValidId(signalId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(signalId)
+          && isOwner(userId)
+          && isValidSignalRecord(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      match /private/{docId} {
+        allow get: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwner(userId)
+          && docId == 'binanceCredentials';
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwner(userId)
+          && docId == 'binanceCredentials'
+          && isValidBinanceCredentials(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwner(userId)
+          && docId == 'binanceCredentials'
+          && isValidBinanceCredentials(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'encryptedKey', 'encryptedSecret', 'keyPreview', 'testnet', 'enabled', 'updatedAt'
+          ]);
+        allow delete: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwner(userId)
+          && docId == 'binanceCredentials';
+      }
+    }
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "entities": {
+    "UserBotProfile": {
+      "title": "UserBotProfile",
+      "description": "Authenticated trader profile, persistent pair/timeframe/leverage/margin configuration, paper balance, and active strategy watch state with wick stop-loss tracking.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "language": { "type": "string", "enum": ["en", "si"] },
+        "selectedPair": { "type": "string", "minLength": 4, "maxLength": 20, "pattern": "^[A-Z0-9]+$" },
+        "timeframe": { "type": "string", "enum": ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w"] },
+        "leverage": { "type": "number" },
+        "marginUsdt": { "type": "number" },
+        "marginMode": { "type": "string", "enum": ["ISOLATED", "CROSSED"] },
+        "boundaryMode": { "type": "string", "enum": ["wick", "body"] },
+        "rsiPeriod": { "type": "number" },
+        "rsiOverbought": { "type": "number" },
+        "rsiOversold": { "type": "number" },
+        "buyCloseRsiEnabled": { "type": "boolean" },
+        "buyCloseRsi": { "type": "number" },
+        "sellCloseRsiEnabled": { "type": "boolean" },
+        "sellCloseRsi": { "type": "number" },
+        "botActive": { "type": "boolean" },
+        "stopLossEnabled": { "type": "boolean" },
+        "paperBalanceUsdt": { "type": "number" },
+        "lastEvaluatedTime": { "type": "number" },
+        "armedSellRef": { "type": "number" },
+        "armedBuyRef": { "type": "number" },
+        "armedSellWick": { "type": "number" },
+        "armedBuyWick": { "type": "number" },
+        "armedSellCandleTime": { "type": "number" },
+        "armedBuyCandleTime": { "type": "number" },
+        "slReentrySide": { "type": "string", "enum": ["BUY", "SELL", "NONE"] },
+        "slReentryPrice": { "type": "number" },
+        "slReentryStopLoss": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "email",
+        "language",
+        "selectedPair",
+        "timeframe",
+        "leverage",
+        "marginUsdt",
+        "marginMode",
+        "boundaryMode",
+        "rsiPeriod",
+        "rsiOverbought",
+        "rsiOversold",
+        "botActive",
+        "paperBalanceUsdt",
+        "lastEvaluatedTime",
+        "armedSellRef",
+        "armedBuyRef",
+        "armedSellCandleTime",
+        "armedBuyCandleTime",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TradeRecord": {
+      "title": "TradeRecord",
+      "description": "Open or closed position opened by the Heikin Ashi RSI bot or manually closed by the trader.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "pair": { "type": "string", "minLength": 4, "maxLength": 20, "pattern": "^[A-Z0-9]+$" },
+        "timeframe": { "type": "string", "enum": ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w"] },
+        "side": { "type": "string", "enum": ["BUY", "SELL"] },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED"] },
+        "entryPrice": { "type": "number" },
+        "exitPrice": { "type": "number" },
+        "stopLossPrice": { "type": "number" },
+        "leverage": { "type": "number" },
+        "marginUsdt": { "type": "number" },
+        "quantity": { "type": "number" },
+        "realizedPnl": { "type": "number" },
+        "realizedRoiPct": { "type": "number" },
+        "entryRsi": { "type": "number" },
+        "exitRsi": { "type": "number" },
+        "closeReason": { "type": "string", "enum": ["NONE", "REVERSAL_SIGNAL", "MANUAL_CLOSE", "STOP_LOSS", "RSI_CLOSE"] },
+        "openedAtMs": { "type": "number" },
+        "closedAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "pair",
+        "timeframe",
+        "side",
+        "status",
+        "entryPrice",
+        "exitPrice",
+        "leverage",
+        "marginUsdt",
+        "quantity",
+        "realizedPnl",
+        "realizedRoiPct",
+        "entryRsi",
+        "exitRsi",
+        "closeReason",
+        "openedAtMs",
+        "closedAtMs",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SignalRecord": {
+      "title": "SignalRecord",
+      "description": "Historical log of Heikin Ashi RSI armed alerts, BUY/SELL entry signals, and wick stop-loss triggers.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "pair": { "type": "string", "minLength": 4, "maxLength": 20, "pattern": "^[A-Z0-9]+$" },
+        "timeframe": { "type": "string", "enum": ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w"] },
+        "signalType": { "type": "string", "enum": ["BUY", "SELL", "ARMED_SELL", "ARMED_BUY", "STOP_LOSS", "RSI_CLOSE"] },
+        "candleTimeMs": { "type": "number" },
+        "price": { "type": "number" },
+        "haOpen": { "type": "number" },
+        "haHigh": { "type": "number" },
+        "haLow": { "type": "number" },
+        "haClose": { "type": "number" },
+        "rsi": { "type": "number" },
+        "referenceLevel": { "type": "number" },
+        "executed": { "type": "boolean" },
+        "note": { "type": "string", "minLength": 0, "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "pair",
+        "timeframe",
+        "signalType",
+        "candleTimeMs",
+        "price",
+        "haOpen",
+        "haHigh",
+        "haLow",
+        "haClose",
+        "rsi",
+        "referenceLevel",
+        "executed",
+        "note",
+        "createdAt"
+      ]
+    },
+    "BinanceCredentials": {
+      "title": "BinanceCredentials",
+      "description": "User-isolated AES-GCM encrypted Binance Futures API key and secret synced exclusively across devices owned by the authenticated user.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "encryptedKey": { "type": "string", "minLength": 12, "maxLength": 1024 },
+        "encryptedSecret": { "type": "string", "minLength": 12, "maxLength": 1024 },
+        "keyPreview": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "testnet": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "encryptedKey",
+        "encryptedSecret",
+        "keyPreview",
+        "testnet",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserBotProfile" },
+      "description": "Stores trader settings, active pair, timeframe, leverage, margin, stop-loss preference, and bot watch state."
+    },
+    "/users/{userId}/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/TradeRecord" },
+      "description": "Stores trader's open and closed trades with stop-loss level and realized PnL."
+    },
+    "/users/{userId}/signals/{signalId}": {
+      "schema": { "$ref": "#/entities/SignalRecord" },
+      "description": "Stores trader's chronological signal history for Heikin Ashi RSI(80/22) and stop-loss events."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/BinanceCredentials" },
+      "description": "Stores strictly owner-isolated encrypted Binance API credentials synced across the owner's devices."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "HeikinPulse Binance Auto-Trader",
+  "description": "Automated Binance Heikin Ashi and RSI 80/20 reversal trading bot with interactive pan/zoom charting, persistent multi-device sync, signal logs, and daily/weekly/monthly/yearly PnL analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
