@@ -65,6 +65,7 @@ interface BotControlPanelProps {
     lastAction: string;
     lastError: string | null;
   } | null;
+  cloudWorkerToken?: string | null;
   onUpdateSettings: (patch: {
     timeframe?: Timeframe;
     leverage?: number;
@@ -127,6 +128,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
   binanceCreds,
   isSignedIn = false,
   cloudWorkerStatus = null,
+  cloudWorkerToken = null,
   onUpdateSettings,
   onSetBotMode,
   onManualTrade,
@@ -444,7 +446,9 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const keepAliveUrl = `${window.location.origin}/api/health`;
+                  const keepAliveUrl = cloudWorkerToken
+                    ? `${window.location.origin}/api/cron?w=${encodeURIComponent(cloudWorkerToken)}`
+                    : `${window.location.origin}/api/health`;
                   navigator.clipboard?.writeText(keepAliveUrl).then(() => {
                     setCopiedKeepAlive(true);
                     setTimeout(() => setCopiedKeepAlive(false), 2000);
@@ -458,7 +462,7 @@ export const BotControlPanel: React.FC<BotControlPanelProps> = ({
                 ) : (
                   <Copy className="w-3 h-3 text-sky-400" />
                 )}
-                <span>{copiedKeepAlive ? copy.copied : 'Keep-Alive'}</span>
+                <span>{copiedKeepAlive ? copy.copied : 'Cron URL'}</span>
               </button>
             )}
           </div>

@@ -417,11 +417,74 @@ const botEngine = createServerBotEngine({
   }
 });
 
-app.get('/api/health', (_req, res) => {
-  // Also wake & run a background tick whenever health/cron pings the server
-  botEngine.runCycle().catch(() => {});
+function hydrateWorkersFromRequest(req: express.Request) {
+  const tokens: string[] = [];
+  if (typeof req.query.w === 'string' && req.query.w.trim()) {
+    tokens.push(req.query.w.trim());
+  }
+  const headerToken = req.header('x-worker-token');
+  if (headerToken && headerToken.trim()) {
+    tokens.push(headerToken.trim());
+  }
+  const envToken = process.env.HEIKINPULSE_WORKER_TOKEN;
+  if (envToken && envToken.trim()) {
+    for (const part of envToken.split(',')) {
+      if (part.trim()) tokens.push(part.trim());
+    }
+  }
+  let hydratedCount = 0;
+  for (const tok of tokens) {
+    if (botEngine.hydrateWorkerToken(tok)) hydratedCount += 1;
+  }
+  return hydratedCount;
+}
+
+app.get('/api/health', async (req, res) => {
+  hydrateWorkersFromRequest(req);
+  if (process.env.VERCEL) {
+    try {
+      await botEngine.runCycle();
+    } catch {
+      // Non-fatal on health check
+    }
+  } else {
+    // Also wake & run a background tick whenever health/cron pings the server
+    botEngine.runCycle().catch(() => {});
+  }
   const status = botEngine.getStatus();
   res.json({ ok: true, timestamp: Date.now(), workerCount: status.workerCount });
+});
+
+app.all('/api/cron', async (req, res) => {
+  const hydrated = hydrateWorkersFromRequest(req);
+  try {
+    await botEngine.runCycle();
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : 'Cron cycle failed',
+      timestamp: Date.now()
+    });
+    return;
+  }
+  const snapshots = botEngine.getStatusesSnapshot().map(({ status }) => ({
+    pair: status.pair,
+    timeframe: status.timeframe,
+    botActive: status.botActive,
+    hasOpenTrade: status.hasOpenTrade,
+    openTradeSide: status.openTradeSide,
+    lastTickAt: status.lastTickAt,
+    lastAction: status.lastAction,
+    lastError: status.lastError
+  }));
+  res.json({
+    ok: true,
+    timestamp: Date.now(),
+    region: process.env.VERCEL_REGION || 'local',
+    hydrated,
+    workerCount: snapshots.length,
+    workers: snapshots
+  });
 });
 
 app.post('/api/bot/register', async (req, res) => {
@@ -432,7 +495,8 @@ app.post('/api/bot/register', async (req, res) => {
   }
   try {
     const status = await botEngine.registerWorker(uid, refreshToken);
-    res.json({ ok: true, status });
+    const workerToken = botEngine.sealWorkerToken(uid, refreshToken);
+    res.json({ ok: true, status, workerToken });
   } catch (err) {
     res.status(401).json({
       ok: false,
@@ -1012,4 +1076,9 @@ async function startServer() {
   });
 }
 
-startServer();
+export { app, botEngine };
+export default app;
+
+if (!process.env.VERCEL) {
+  startServer();
+}

@@ -138,8 +138,8 @@ export const TRANSLATIONS = {
     cloud247Active: '24/7 Server Active',
     cloud247Syncing: 'Connecting 24/7 Server...',
     cloud247Guest: 'Sign in for 24/7 off-device trading',
-    cloud247Hint: 'Executes trades & Close-RSI even when your phone or PC is OFF. For 24h Cloud Run uptime without sleep, set a free 5-min ping to the Keep-Alive URL.',
-    cloud247CopyUrl: 'Copy Keep-Alive URL'
+    cloud247Hint: 'Executes trades & Close-RSI even when your phone or PC is OFF. On Vercel Free, copy the Cron URL and set a 1-min ping on cron-job.org.',
+    cloud247CopyUrl: 'Copy 24/7 Cron URL'
   },
   si: {
     brand: 'HeikinPulse',
@@ -278,8 +278,8 @@ export const TRANSLATIONS = {
     cloud247Active: 'පැය 24 Server ක්‍රියාත්මකයි',
     cloud247Syncing: 'Server සම්බන්ධ වෙමින්...',
     cloud247Guest: 'PC/Phone Off කර පැය 24 Trade වීමට Sign In වන්න',
-    cloud247Hint: 'ඔබගේ Phone හෝ PC Off කර තිබුණද Server එකෙන් පැය 24ම Trade Open/Close වේ. Cloud Run sleep නොවී තබාගැනීමට පහත Keep-Alive URL එකට නොමිලේ 5-min Ping (UptimeRobot) එකක් දැමිය හැක.',
-    cloud247CopyUrl: 'Keep-Alive URL පිටපත් කරන්න'
+    cloud247Hint: 'ඔබගේ Phone හෝ PC Off කර තිබුණද පැය 24ම Trade Open/Close වේ. Vercel Free මත Run කරන්නේ නම් Cron URL එක copy කර cron-job.org හි 1-min Ping එකක් දමන්න.',
+    cloud247CopyUrl: 'පැය 24 Cron URL පිටපත් කරන්න'
   }
 } as const;
 

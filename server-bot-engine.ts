@@ -232,10 +232,26 @@ function encodeFsFields(obj: Record<string, unknown>): Record<string, FsValue> {
   return out;
 }
 
+function resolveFirebaseConfig(rootDir: string): FirebaseConfigFile {
+  const candidates = [
+    path.join(rootDir, 'firebase-applet-config.json'),
+    path.join(process.cwd(), 'firebase-applet-config.json'),
+    path.resolve(rootDir, '..', 'firebase-applet-config.json'),
+    path.resolve(rootDir, '..', '..', 'firebase-applet-config.json')
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, 'utf8')) as FirebaseConfigFile;
+    }
+  }
+  throw new Error(`firebase-applet-config.json not found in: ${candidates.join(', ')}`);
+}
+
 export function createServerBotEngine(deps: ServerWorkerDeps) {
-  const cfgPath = path.join(deps.rootDir, 'firebase-applet-config.json');
-  const firebaseCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')) as FirebaseConfigFile;
-  const storePath = path.join(deps.rootDir, '.heikinpulse-workers.enc');
+  const firebaseCfg = resolveFirebaseConfig(deps.rootDir);
+  const storePath = process.env.VERCEL
+    ? path.join('/tmp', '.heikinpulse-workers.enc')
+    : path.join(deps.rootDir, '.heikinpulse-workers.enc');
 
   const fsRestRoot = `https://firestore.googleapis.com/v1/projects/${firebaseCfg.projectId}/databases/${firebaseCfg.firestoreDatabaseId}`;
   const docNamePrefix = `projects/${firebaseCfg.projectId}/databases/${firebaseCfg.firestoreDatabaseId}/documents`;
@@ -1335,6 +1351,72 @@ export function createServerBotEngine(deps: ServerWorkerDeps) {
     };
   }
 
+  function sealWorkerToken(uid: string, refreshToken: string): string {
+    const key = deriveLocalRegistryKey(firebaseCfg);
+    const iv = crypto.randomBytes(12);
+    const payload = JSON.stringify({ v: 1, uid, refreshToken });
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const enc = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return `${iv.toString('base64url')}.${tag.toString('base64url')}.${enc.toString('base64url')}`;
+  }
+
+  function hydrateWorkerToken(token: string): boolean {
+    const clean = (token || '').trim();
+    if (!clean) return false;
+    try {
+      const parts = clean.split('.');
+      if (parts.length !== 3) return false;
+      const [ivB64, tagB64, dataB64] = parts;
+      const key = deriveLocalRegistryKey(firebaseCfg);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivB64, 'base64url'));
+      decipher.setAuthTag(Buffer.from(tagB64, 'base64url'));
+      const jsonText = Buffer.concat([
+        decipher.update(Buffer.from(dataB64, 'base64url')),
+        decipher.final()
+      ]).toString('utf8');
+      const parsed = JSON.parse(jsonText) as { v?: number; uid?: string; refreshToken?: string };
+      if (!parsed.uid || !parsed.refreshToken) return false;
+
+      const existing = workers.get(parsed.uid);
+      if (existing) {
+        if (existing.refreshToken !== parsed.refreshToken) {
+          existing.refreshToken = parsed.refreshToken;
+          existing.idToken = '';
+          existing.tokenExpiresAt = 0;
+        }
+        return true;
+      }
+
+      workers.set(parsed.uid, {
+        uid: parsed.uid,
+        refreshToken: parsed.refreshToken,
+        registeredAt: Date.now(),
+        idToken: '',
+        tokenExpiresAt: 0,
+        lastTickAt: 0,
+        lastSignalAt: 0,
+        lastAction: 'Hydrated from Cron Token',
+        lastError: null,
+        botActive: false,
+        openTradeId: null,
+        openTradePair: null,
+        openTradeSide: null,
+        pair: 'BTCUSDT',
+        timeframe: '15m',
+        slTriggeredCandleTime: 0,
+        closedTradeIds: new Set()
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function getStatusesSnapshot(): Array<{ uid: string; status: PublicWorkerStatus }> {
+    return Array.from(workers.keys()).map((uid) => ({ uid, status: getStatus(uid) }));
+  }
+
   let intervalHandle: NodeJS.Timeout | null = null;
 
   function start(): void {
@@ -1355,6 +1437,9 @@ export function createServerBotEngine(deps: ServerWorkerDeps) {
     runCycle,
     registerWorker,
     unregisterWorker,
-    getStatus
+    getStatus,
+    getStatusesSnapshot,
+    sealWorkerToken,
+    hydrateWorkerToken
   };
 }

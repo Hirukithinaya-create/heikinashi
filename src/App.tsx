@@ -166,6 +166,7 @@ export default function App() {
     lastAction: string;
     lastError: string | null;
   } | null>(null);
+  const [serverWorkerToken, setServerWorkerToken] = useState<string | null>(null);
 
   const processingRef = useRef<boolean>(false);
   const slTriggeredCandleTimeRef = useRef<number>(0);
@@ -186,6 +187,7 @@ export default function App() {
   const syncServerWorker = useCallback(async (targetUser: User | null) => {
     if (!targetUser || !targetUser.refreshToken) {
       setServerWorkerStatus(null);
+      setServerWorkerToken(null);
       return;
     }
     try {
@@ -200,6 +202,7 @@ export default function App() {
       if (res.ok) {
         const data = (await res.json()) as {
           ok?: boolean;
+          workerToken?: string;
           status?: {
             registered: boolean;
             lastTickAt: number;
@@ -209,6 +212,9 @@ export default function App() {
         };
         if (data.status) {
           setServerWorkerStatus(data.status);
+        }
+        if (data.workerToken) {
+          setServerWorkerToken(data.workerToken);
         }
       }
     } catch {
@@ -220,6 +226,7 @@ export default function App() {
   useEffect(() => {
     if (!authReady || !user) {
       setServerWorkerStatus(null);
+      setServerWorkerToken(null);
       return;
     }
     syncServerWorker(user);
@@ -1589,6 +1596,7 @@ export default function App() {
       }).catch(() => {});
     }
     setServerWorkerStatus(null);
+    setServerWorkerToken(null);
     await signOut(auth);
   };
 
@@ -2162,6 +2170,7 @@ export default function App() {
                   binanceCreds={binanceCreds}
                   isSignedIn={Boolean(user)}
                   cloudWorkerStatus={serverWorkerStatus}
+                  cloudWorkerToken={serverWorkerToken}
                   onUpdateSettings={handleUpdateSettings}
                   onSetBotMode={handleSetBotActive}
                   onManualTrade={handleManualTrade}
@@ -2461,6 +2470,7 @@ export default function App() {
                 binanceCreds={binanceCreds}
                 isSignedIn={Boolean(user)}
                 cloudWorkerStatus={serverWorkerStatus}
+                cloudWorkerToken={serverWorkerToken}
                 onUpdateSettings={handleUpdateSettings}
                 onSetBotMode={handleSetBotActive}
                 onManualTrade={handleManualTrade}
